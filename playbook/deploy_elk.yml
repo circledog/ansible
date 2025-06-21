@@ -1,32 +1,53 @@
 ---
 - name: Deploy ELK stack via Helm
-  hosts: k3s_master
+  hosts: k3s_master                    # 或改成 all / localhost，與 hosts.ini 一致即可
   become: true
   vars:
     elastic_namespace: elk
     helm_repo_name: elastic
     helm_repo_url: https://helm.elastic.co
     values_dir: "{{ playbook_dir | dirname }}/elk_values"
+
+  collections:
+    - kubernetes.core                  # 使用短 FQCN，可避免打錯
+
   pre_tasks:
-    - name: 安裝作業系統套件(Helm跟jq)
+    # ① 安裝 Helm（若尚未安裝）
+    - name: Check if Helm already exists
+      command: helm version --short
+      register: helm_check
+      changed_when: false
+      failed_when: false
+
+    - name: Install Helm 3 (official script)
+      shell: |
+        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      args:
+        creates: /usr/local/bin/helm
+      when: helm_check.rc != 0
+
+    # ② 安裝 jq（Logstash / Filebeat 有時會用到，順便裝）
+    - name: Ensure jq present
       apt:
-        name:
-          - helm
-          - jq
+        name: jq
         state: present
         update_cache: yes
 
-    - name: 新增 Elastic Helm repo
-      community.general.helm_repository:
+    # ③ 新增 Elastic Helm repo
+    - name: Add Elastic Helm repo
+      helm_repository:
         name: "{{ helm_repo_name }}"
         repo_url: "{{ helm_repo_url }}"
+        state: present
 
+    # ④ 更新 repo cache
     - name: Helm repo update
       command: helm repo update
       changed_when: false
 
-    - name: 建立 ELK namespace
-      kubernetes.core.k8s:
+    # ⑤ 建立 elk namespace（若已存在會跳過）
+    - name: Ensure elk namespace exists
+      k8s:
         api_version: v1
         kind: Namespace
         name: "{{ elastic_namespace }}"
@@ -34,38 +55,45 @@
 
   tasks:
     - name: Deploy Elasticsearch
-      community.kubernetes.helm:
+      helm:
         name: elasticsearch
         chart_ref: "{{ helm_repo_name }}/elasticsearch"
         release_namespace: "{{ elastic_namespace }}"
-        create_namespace: false
+        create_namespace: false            # 已手動建 ns，可關
         values_files:
           - "{{ values_dir }}/elasticsearch.yml"
+        reset_values: true
         wait: true
 
     - name: Deploy Logstash
-      community.kubernetes.helm:
+      helm:
         name: logstash
         chart_ref: "{{ helm_repo_name }}/logstash"
         release_namespace: "{{ elastic_namespace }}"
+        create_namespace: false
         values_files:
           - "{{ values_dir }}/logstash.yml"
+        reset_values: true
         wait: true
 
     - name: Deploy Filebeat
-      community.kubernetes.helm:
+      helm:
         name: filebeat
         chart_ref: "{{ helm_repo_name }}/filebeat"
         release_namespace: "{{ elastic_namespace }}"
+        create_namespace: false
         values_files:
           - "{{ values_dir }}/filebeat.yml"
+        reset_values: true
         wait: true
 
     - name: Deploy Kibana
-      community.kubernetes.helm:
+      helm:
         name: kibana
         chart_ref: "{{ helm_repo_name }}/kibana"
         release_namespace: "{{ elastic_namespace }}"
+        create_namespace: false
         values_files:
           - "{{ values_dir }}/kibana.yml"
+        reset_values: true
         wait: true
