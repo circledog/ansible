@@ -1,0 +1,4 @@
+---
+collections:
+  - name: community.general        # 常用模組
+  - name: community.kubernetes     # helm/k8s 模組
