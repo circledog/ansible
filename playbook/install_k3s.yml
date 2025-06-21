@@ -1,33 +1,35 @@
 ---
 - name: Install single-node k3s (server)
-  hosts: k3s_master
+  hosts: k3s_master          # 對應 inventories/hosts.ini 的 k3s_master 群組
   become: true
   vars:
     k3s_version: v1.30.1+k3s1
   tasks:
-    - name: 下載官方安裝腳本
-      get_url:
-        url: "https://get.k3s.io"
+    - name: 下載官方 k3s 安裝腳本
+      ansible.builtin.get_url:
+        url: https://get.k3s.io
         dest: /tmp/install_k3s.sh
         mode: '0755'
 
-    - name: 安裝 k3s
-      ansible.builtin.command: /tmp/install_k3s.sh
+    - name: 安裝 k3s，並讓 kubeconfig 可由非 root 讀取
+      ansible.builtin.command: |
+        INSTALL_K3S_VERSION={{ k3s_version }} \
+        INSTALL_K3S_EXEC="--write-kubeconfig-mode=644" \
+        /tmp/install_k3s.sh
       args:
         creates: /usr/local/bin/k3s
-      environment:
-        INSTALL_K3S_VERSION: "{{ k3s_version }}"
 
-    - name: 確保 ~/.kube 目錄存在
-      file:
+    - name: 確保 ~/.kube 存在
+      ansible.builtin.file:
         path: "{{ ansible_env.HOME }}/.kube"
         state: directory
         mode: '0700'
 
-    - name: 複製 kubeconfig 供之後 Helm/k8s 模組使用
-      copy:
+    - name: 複製 kubeconfig 到使用者家目錄
+      ansible.builtin.copy:
         src: /etc/rancher/k3s/k3s.yaml
         dest: "{{ ansible_env.HOME }}/.kube/config"
         remote_src: yes
-        owner: "{{ ansible_user_id }}"     # 這個 fact 在 local 也有
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_gid | default(omit) }}"
         mode: '0600'
