@@ -1,0 +1,71 @@
+---
+- name: Deploy ELK stack via Helm
+  hosts: k3s_master
+  become: true
+  vars:
+    elastic_namespace: elk
+    helm_repo_name: elastic
+    helm_repo_url: https://helm.elastic.co
+    values_dir: "{{ playbook_dir | dirname }}/elk_values"
+  pre_tasks:
+    - name: 安裝作業系統套件(Helm跟jq)
+      apt:
+        name:
+          - helm
+          - jq
+        state: present
+        update_cache: yes
+
+    - name: 新增 Elastic Helm repo
+      community.general.helm_repository:
+        name: "{{ helm_repo_name }}"
+        repo_url: "{{ helm_repo_url }}"
+
+    - name: Helm repo update
+      command: helm repo update
+      changed_when: false
+
+    - name: 建立 ELK namespace
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Namespace
+        name: "{{ elastic_namespace }}"
+        state: present
+
+  tasks:
+    - name: Deploy Elasticsearch
+      community.kubernetes.helm:
+        name: elasticsearch
+        chart_ref: "{{ helm_repo_name }}/elasticsearch"
+        release_namespace: "{{ elastic_namespace }}"
+        create_namespace: false
+        values_files:
+          - "{{ values_dir }}/elasticsearch.yml"
+        wait: true
+
+    - name: Deploy Logstash
+      community.kubernetes.helm:
+        name: logstash
+        chart_ref: "{{ helm_repo_name }}/logstash"
+        release_namespace: "{{ elastic_namespace }}"
+        values_files:
+          - "{{ values_dir }}/logstash.yml"
+        wait: true
+
+    - name: Deploy Filebeat
+      community.kubernetes.helm:
+        name: filebeat
+        chart_ref: "{{ helm_repo_name }}/filebeat"
+        release_namespace: "{{ elastic_namespace }}"
+        values_files:
+          - "{{ values_dir }}/filebeat.yml"
+        wait: true
+
+    - name: Deploy Kibana
+      community.kubernetes.helm:
+        name: kibana
+        chart_ref: "{{ helm_repo_name }}/kibana"
+        release_namespace: "{{ elastic_namespace }}"
+        values_files:
+          - "{{ values_dir }}/kibana.yml"
+        wait: true
