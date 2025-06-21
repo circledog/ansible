@@ -1,5 +1,5 @@
 1.下載並進入資料夾
-git clone <your-repo> ansible-elk
+git clone https://github.com/circledog/ansible-ELK
 cd ansible-elk
 
 2. 安裝必要collection
