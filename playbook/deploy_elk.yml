@@ -1,6 +1,6 @@
 ---
 - name: Deploy ELK stack via Helm
-  hosts: k3s_master                    # 或改成 all / localhost，與 hosts.ini 一致即可
+  hosts: k3s_master
   become: true
   vars:
     elastic_namespace: elk
@@ -9,43 +9,50 @@
     values_dir: "{{ playbook_dir | dirname }}/elk_values"
 
   collections:
-    - kubernetes.core                  # 使用短 FQCN，可避免打錯
+    - kubernetes.core
 
   pre_tasks:
-    # ① 安裝 Helm（若尚未安裝）
-    - name: Check if Helm already exists
-      command: helm version --short
+    # 安裝 Kubernetes client library（apt 版）
+    - name: Ensure python3-kubernetes is installed
+      ansible.builtin.apt:
+        name: python3-kubernetes
+        state: present
+        update_cache: yes
+
+    # 安裝 jq
+    - name: Ensure jq is installed
+      ansible.builtin.apt:
+        name: jq
+        state: present
+        update_cache: yes
+
+    # 安裝 Helm（若尚未）
+    - name: Check if Helm exists
+      ansible.builtin.command:
+        cmd: helm version --short
       register: helm_check
       changed_when: false
       failed_when: false
 
-    - name: Install Helm 3 (official script)
-      shell: |
+    - name: Install Helm 3 if missing
+      ansible.builtin.shell: |
         curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
       args:
         creates: /usr/local/bin/helm
       when: helm_check.rc != 0
 
-    # ② 安裝 jq（Logstash / Filebeat 有時會用到，順便裝）
-    - name: Ensure jq present
-      apt:
-        name: jq
-        state: present
-        update_cache: yes
-
-    # ③ 新增 Elastic Helm repo
+    # 加 Helm repo
     - name: Add Elastic Helm repo
       helm_repository:
         name: "{{ helm_repo_name }}"
         repo_url: "{{ helm_repo_url }}"
         state: present
 
-    # ④ 更新 repo cache
-    - name: Helm repo update
-      command: helm repo update
+    - name: Update Helm repo cache
+      ansible.builtin.command: helm repo update
       changed_when: false
 
-    # ⑤ 建立 elk namespace（若已存在會跳過）
+    # 建 namespace（保險起見）
     - name: Ensure elk namespace exists
       k8s:
         api_version: v1
@@ -59,41 +66,60 @@
         name: elasticsearch
         chart_ref: "{{ helm_repo_name }}/elasticsearch"
         release_namespace: "{{ elastic_namespace }}"
-        create_namespace: false            # 已手動建 ns，可關
         values_files:
           - "{{ values_dir }}/elasticsearch.yml"
         reset_values: true
         wait: true
+        timeout: 600
+
+    - name: Wait for Elasticsearch to be ready
+      ansible.builtin.shell: |
+        kubectl rollout status statefulset/elasticsearch-master -n {{ elastic_namespace }} --timeout=600s
+      register: es_ready
+      failed_when: es_ready.rc != 0
 
     - name: Deploy Logstash
       helm:
         name: logstash
         chart_ref: "{{ helm_repo_name }}/logstash"
         release_namespace: "{{ elastic_namespace }}"
-        create_namespace: false
         values_files:
           - "{{ values_dir }}/logstash.yml"
         reset_values: true
         wait: true
+        timeout: 300
 
-    - name: Deploy Filebeat
+    - name: Deploy Filebeat (DaemonSet)
       helm:
         name: filebeat
         chart_ref: "{{ helm_repo_name }}/filebeat"
         release_namespace: "{{ elastic_namespace }}"
-        create_namespace: false
         values_files:
           - "{{ values_dir }}/filebeat.yml"
         reset_values: true
         wait: true
+        timeout: 300
+
+    # 清理殘留 hook ConfigMap，避免二次升級失敗
+    - name: Remove stale Kibana hook configmap if exists
+      k8s:
+        state: absent
+        api_version: v1
+        kind: ConfigMap
+        namespace: "{{ elastic_namespace }}"
+        name: kibana-kibana-helm-scripts
+      ignore_errors: true
 
     - name: Deploy Kibana
       helm:
         name: kibana
         chart_ref: "{{ helm_repo_name }}/kibana"
         release_namespace: "{{ elastic_namespace }}"
-        create_namespace: false
         values_files:
           - "{{ values_dir }}/kibana.yml"
         reset_values: true
         wait: true
+        timeout: 600
+        atomic: true
+        force: true
+        cleanup_on_fail: true
