@@ -1,8 +1,13 @@
 replicas: 1
 persistence:
-  enabled: false 
+  enabled: false
+service:
+  type: ClusterIP
+  ports:
+    - name: beats
+      port: 5044
 resources:
-  limits:
-    memory: "1Gi"
   requests:
     memory: "512Mi"
+  limits:
+    memory: "1Gi"
