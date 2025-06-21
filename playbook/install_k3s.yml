@@ -11,15 +11,23 @@
         dest: /tmp/install_k3s.sh
         mode: '0755'
 
-    - name: 安裝k3s
-      command: "INSTALL_K3S_VERSION={{ k3s_version }} /tmp/install_k3s.sh"
+    - name: 安裝 k3s
+      ansible.builtin.command: /tmp/install_k3s.sh
       args:
         creates: /usr/local/bin/k3s
+      environment:
+        INSTALL_K3S_VERSION: "{{ k3s_version }}"
 
-    - name: 複製kubeconfig供之後Helm/k8s模組使用
+    - name: 確保 ~/.kube 目錄存在
+      file:
+        path: "{{ ansible_env.HOME }}/.kube"
+        state: directory
+        mode: '0700'
+
+    - name: 複製 kubeconfig 供之後 Helm/k8s 模組使用
       copy:
         src: /etc/rancher/k3s/k3s.yaml
-        dest: /home/{{ ansible_user }}/.kube/config
+        dest: "{{ ansible_env.HOME }}/.kube/config"
         remote_src: yes
-        owner: "{{ ansible_user }}"
+        owner: "{{ ansible_user_id }}"     # 這個 fact 在 local 也有
         mode: '0600'
