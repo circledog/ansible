@@ -1,0 +1,15 @@
+[0;1;31m×[0m elasticsearch.service - Elasticsearch
+     Loaded: loaded (]8;;file://ubuntuc-5354652-iaas/usr/lib/systemd/system/elasticsearch.service/usr/lib/systemd/system/elasticsearch.service]8;;; [0;1;32menabled[0m; preset: [0;1;32menabled[0m)
+     Active: [0;1;31mfailed[0m (Result: exit-code) since Sat 2025-07-05 01:21:10 CST; 15s ago
+       Docs: ]8;;https://www.elastic.cohttps://www.elastic.co]8;;
+    Process: 17323 ExecStart=/usr/share/elasticsearch/bin/systemd-entrypoint -p ${PID_DIR}/elasticsearch.pid --quiet [0;1;31m(code=exited, status=1/FAILURE)[0m
+   Main PID: 17323 (code=exited, status=1/FAILURE)
+        CPU: 39.279s
+
+Jul 05 01:20:48 ubuntuc-5354652-iaas systemd[1]: Starting elasticsearch.service - Elasticsearch...
+Jul 05 01:21:09 ubuntuc-5354652-iaas systemd-entrypoint[17323]: ERROR: Elasticsearch did not exit normally - check the logs at /var/log/elasticsearch/my-elk-cluster.log
+Jul 05 01:21:10 ubuntuc-5354652-iaas systemd-entrypoint[17323]: ERROR: Elasticsearch died while starting up, with exit code 1
+Jul 05 01:21:10 ubuntuc-5354652-iaas systemd[1]: [0;1;39m[0;1;31m[0;1;39melasticsearch.service: Main process exited, code=exited, status=1/FAILURE[0m
+Jul 05 01:21:10 ubuntuc-5354652-iaas systemd[1]: [0;1;38;5;185m[0;1;39m[0;1;38;5;185melasticsearch.service: Failed with result 'exit-code'.[0m
+Jul 05 01:21:10 ubuntuc-5354652-iaas systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start elasticsearch.service - Elasticsearch.[0m
+Jul 05 01:21:10 ubuntuc-5354652-iaas systemd[1]: elasticsearch.service: Consumed 39.279s CPU time.
