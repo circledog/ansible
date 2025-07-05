@@ -1,5 +1,0 @@
----
-collections:
-  - name: community.general        # 常用模組
-  - name: kubernetes.core
-    version: '>=6.0.0'
