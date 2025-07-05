@@ -1,9 +1,0 @@
----
-- name: Deploy ELK Stack
-  hosts: elk_servers
-  become: yes
-  roles:
-    - common
-    - elasticsearch
-    - kibana
-    - logstash
