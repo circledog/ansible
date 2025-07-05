@@ -1,0 +1,6 @@
+[elk_servers]
+# 在這裡填寫你的 Ubuntu 伺服器 IP 位址
+# 例如: 192.168.1.100
+192.168.211.59 ansible_user=ubuntu
+192.168.211.68 ansible_user=ubuntu
+192.168.211.69 ansible_user=ubuntu

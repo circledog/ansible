@@ -1,0 +1,50 @@
+# ======================== Elasticsearch Configuration =========================
+#
+# NOTE: Elasticsearch comes with reasonable defaults for most settings.
+#       Before tweaking these settings, make sure you understand what they do.
+#
+# ---------------------------------- Cluster -----------------------------------
+#
+cluster.name: my-elk-cluster
+#
+# ------------------------------------ Node ------------------------------------
+#
+node.name: {{ ansible_hostname }}
+#
+# ----------------------------------- Paths ------------------------------------
+#
+path.data: /var/lib/elasticsearch
+path.logs: /var/log/elasticsearch
+#
+# ---------------------------------- Network -----------------------------------
+#
+# By default, Elasticsearch binds to localhost only.
+# Set to 0.0.0.0 to allow other hosts (like Kibana, Logstash) to connect.
+network.host: 0.0.0.0
+# Explicitly publish the node's primary IP address for cluster communication.
+network.publish_host: {{ ansible_default_ipv4.address }}
+# Bind the transport layer to the primary IP address as well for robustness.
+transport.host: {{ ansible_default_ipv4.address }}
+http.port: 9200
+#
+# --------------------------------- Discovery ----------------------------------
+#
+# For a multi-node cluster setup.
+#
+# Use a list of all servers in the 'elk_servers' group for discovery
+discovery.seed_hosts: [{% for host in groups['elk_servers'] %}"{{ hostvars[host]['ansible_host'] | default(host) }}"{% if not loop.last %}, {% endif %}{% endfor %}]
+#
+# Bootstrap the cluster using the IP addresses of the initial master-eligible nodes.
+cluster.initial_master_nodes: [{% for host in groups['elk_servers'] %}"{{ hostvars[host]['ansible_host'] | default(host) }}"{% if not loop.last %}, {% endif %}{% endfor %}]
+#
+# ---------------------------------- Security ----------------------------------
+#
+# Basic security features are enabled by default since version 8.x
+# For this setup, we are disabling them to simplify the cluster startup.
+# It is NOT recommended for production environments.
+xpack.security.enabled: false
+xpack.security.enrollment.enabled: false
+xpack.security.http.ssl:
+  enabled: false
+xpack.security.transport.ssl:
+  enabled: false
